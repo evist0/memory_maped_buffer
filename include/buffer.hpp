@@ -17,11 +17,13 @@ class buffer : private std::fstream {
         buffer_proxy operator[](const size_t& index);
 
         void push_back(const std::string& value);
-        void insert(size_t index, const std::string& value);
-        void erase(size_t index);
+        void insert(const size_t& index, const std::string& value);
+        void erase(const size_t& index);
 
         buffer_iterator begin();
         buffer_iterator end();
+
+        void delete_close();
 
         friend class buffer_proxy;
 
@@ -32,12 +34,9 @@ class buffer : private std::fstream {
 
         void realloc();
 
-        void set_capacity(const size_t& new_capacity);
         void set_size(const size_t& new_size);
 
         void set_offset(const size_t& index, const size_t& new_offset);
-
-        size_t get_index(const size_t& offset);
 };
 
 class buffer_proxy {
@@ -49,7 +48,7 @@ class buffer_proxy {
         friend std::ostream& operator<<(std::ostream& out, const buffer_proxy& buffer);
 
     private:
-        buffer_proxy(buffer& buffer, size_t index);
+        buffer_proxy(buffer& buffer, const size_t& index);
 
         buffer& buffer_;
         size_t index_;
@@ -73,7 +72,7 @@ class buffer_iterator {
         buffer_proxy operator*();
 
     private:
-        buffer_iterator(buffer& buffer, size_t index);
+        buffer_iterator(buffer& buffer, const size_t& index);
 
         buffer& buffer_;
         size_t index_;

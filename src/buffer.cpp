@@ -4,7 +4,7 @@
 #include <cassert>
 #include <cmath>
 
-constexpr static std::array<char, 4> magic{ 0x1, 0x3, 0x3, 0x7 };
+constexpr static std::array<char, 4> magic{ 0x01, 0x02, 0x03, 0x04 };
 
 constexpr static size_t capacity_pos = magic.size();
 
@@ -42,12 +42,6 @@ buffer::buffer(const std::string& filename, size_t capacity)
             std::fstream::write(reinterpret_cast<const char*>(&offset_), sizeof(offset_));
         }
     }
-}
-
-void buffer::set_capacity(const size_t& new_capacity) {
-    std::fstream::seekp(capacity_pos, std::ios::beg);
-
-    std::fstream::write(reinterpret_cast<const char*>(&new_capacity), sizeof(new_capacity));
 }
 
 size_t buffer::capacity() {
@@ -89,23 +83,6 @@ buffer_proxy buffer::operator[](const size_t& index) {
     }
 
     return *buffer_iterator(*this, index);
-}
-
-size_t buffer::get_index(const size_t& offset) {
-    auto size_ = size();
-
-    for (size_t i = 0; i < size_; i++) {
-        std::fstream::seekg(offsets_pos + i * sizeof(size_t), std::ios::beg);
-
-        size_t offset_ = 0;
-        std::fstream::read(reinterpret_cast<char*>(&offset_), sizeof(size_t));
-
-        if (offset_ == offset) {
-            return i;
-        }
-    }
-
-    return -1;
 }
 
 void buffer::realloc() {
@@ -158,7 +135,7 @@ void buffer::push_back(const std::string& value) {
     set_size(size_ + 1);
 }
 
-void buffer::insert(size_t index, const std::string& value) {
+void buffer::insert(const size_t& index, const std::string& value) {
     auto capacity_ = capacity();
     auto size_ = size();
 
@@ -194,7 +171,7 @@ void buffer::insert(size_t index, const std::string& value) {
     set_size(size_ + 1);
 }
 
-void buffer::erase(size_t index) {
+void buffer::erase(const size_t& index) {
     size_t size_ = size();
 
     // Нашли строку для удаления
@@ -257,7 +234,13 @@ void buffer::erase(size_t index) {
     set_size(size_ - 1);
 }
 
-buffer_proxy::buffer_proxy(buffer& buffer, size_t index)
+void buffer::delete_close() {
+    std::fstream::close();
+
+    remove(filename_.c_str());
+}
+
+buffer_proxy::buffer_proxy(buffer& buffer, const size_t& index)
         :buffer_(buffer), index_(index) {
 }
 
@@ -315,10 +298,8 @@ buffer_proxy& buffer_proxy::operator=(const std::string& rhs) {
 
     size_t begin = offset + sizeof(size_t) + length_;
 
-    buffer_.seekp(-1, std::ios::end);
+    buffer_.seekp(0, std::ios::end);
     size_t end = buffer_.tellp();
-
-    size_t shift = end - begin;
 
     if (delta > 0) {
         buffer_.seekp(0, std::ios::end);
@@ -328,23 +309,30 @@ buffer_proxy& buffer_proxy::operator=(const std::string& rhs) {
             buffer_.write(&bubble, 1);
         }
 
-        begin = end;
         end += delta;
 
-        for (size_t i = 0; i <= shift; i++) {
+        size_t shift = end - begin;
+
+        begin = end - delta;
+
+        for (size_t i = 0; i < shift; i++) {
             char bubble;
-            buffer_.seekg(begin - i, std::ios::beg);
+            buffer_.seekg(begin - i - 1, std::ios::beg);
             buffer_.read(reinterpret_cast<char*>(&bubble), sizeof(char));
 
-            buffer_.seekp(end - i, std::ios::beg);
+            buffer_.seekp(end - i - 1, std::ios::beg);
             buffer_.write(reinterpret_cast<const char*>(&bubble), sizeof(char));
         }
+
     }
     else {
+
+        size_t shift = end - begin;
+
         begin += delta;
         end = begin - delta;
 
-        for (size_t i = 0; i <= shift; i++) {
+        for (size_t i = 0; i < shift; i++) {
             char bubble;
             buffer_.seekg(end + i, std::ios::beg);
             buffer_.read(reinterpret_cast<char*>(&bubble), sizeof(char));
@@ -378,7 +366,7 @@ buffer_proxy& buffer_proxy::operator=(const std::string& rhs) {
     return *this;
 }
 
-buffer_iterator::buffer_iterator(buffer& buffer, size_t index)
+buffer_iterator::buffer_iterator(buffer& buffer, const size_t& index)
         :buffer_(buffer), index_(index) {
 }
 
@@ -423,7 +411,7 @@ buffer_iterator buffer::begin() {
 }
 
 buffer_iterator buffer::end() {
-    std::fstream::seekg(capacity_pos, std::ios::beg);
+    std::fstream::seekg(size_pos, std::ios::beg);
 
     size_t size;
     std::fstream::read(reinterpret_cast<char*>(&size), sizeof(size));
